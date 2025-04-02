@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "Performance_test"
+name = "Tumour_Nuker"
 version = "0.1.0"
 dependencies = [
  "rand",

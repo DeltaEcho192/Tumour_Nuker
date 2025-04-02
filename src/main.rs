@@ -1,5 +1,5 @@
-use Performance_test::beam_utils;
-use Performance_test::vector::Vector;
+use Tumour_Nuker::beam_utils;
+use Tumour_Nuker::vector::Vector;
 use std::thread;
 
 fn loop_test() {
