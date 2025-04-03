@@ -4,10 +4,10 @@ use rand::distr::Uniform;
 use rand::distr::uniform::UniformFloat;
 
 #[derive(Debug)]
-struct PatientBox {
-    x_size: i64,
-    y_size: i64,
-    z_size: i64,
+pub struct PatientBox {
+    pub x_size: i64,
+    pub y_size: i64,
+    pub z_size: i64,
 }
 
 impl PatientBox {
@@ -17,14 +17,14 @@ impl PatientBox {
 }
 
 #[derive(Debug)]
-struct TissueBox {
-    x: i64,
-    y: i64,
-    z: i64,
-    x_width: i64,
-    y_width: i64,
-    z_width: i64,
-    tissue_type: Option<TissueType>,
+pub struct TissueBox {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+    pub x_width: i64,
+    pub y_width: i64,
+    pub z_width: i64,
+    pub tissue_type: Option<TissueType>,
 }
 
 #[derive(Debug)]
@@ -32,6 +32,7 @@ pub enum TissueType {
     Tumour,
     SerialOrgan,
     ParallelOrgan,
+    HealthyTissue,
 }
 
 #[derive(Debug)]
@@ -44,10 +45,7 @@ pub enum PatientBoxSide {
     TopFace,
 }
 
-pub fn compute_beam_entry(
-    face: &PatientBoxSide,
-    patient_box: &PatientBox,
-) -> Vector {
+pub fn compute_beam_entry(face: &PatientBoxSide, patient_box: &PatientBox) -> Vector {
     let mut rng = rand::rng();
     let entry_point = match face {
         PatientBoxSide::LeftFace => Vector::new(
@@ -70,7 +68,7 @@ pub fn compute_beam_entry(
             patient_box.y_size as f32,
             rng.random_range(0.0..(patient_box.z_size as f32)),
         ),
-        PatientBoxSide::BottomFace=> Vector::new(
+        PatientBoxSide::BottomFace => Vector::new(
             rng.random_range(0.0..(patient_box.x_size as f32)),
             rng.random_range(0.0..(patient_box.y_size as f32)),
             0.0,
@@ -81,6 +79,5 @@ pub fn compute_beam_entry(
             patient_box.z_size as f32,
         ),
     };
-
     entry_point
 }
