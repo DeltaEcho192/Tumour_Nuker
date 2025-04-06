@@ -136,7 +136,7 @@ const WEIGHT_HEALTHY: f32 = 1.0;
 const D_PERSCRIBED: f32 = 40.0;
 const D_THRESHOLD_S: f32 = 0.0;
 const D_THRESHOLD_P: f32 = 0.0;
-const D_THRESHOLD_H: f32 = 0.150;
+const D_THRESHOLD_H: f32 = 0.375;
 
 pub fn compute_cost<const N: usize>(
     dose_params: &mut ComputeDoseParams<{ N }>,
@@ -208,5 +208,7 @@ pub fn compute_cost<const N: usize>(
         + WEIGHT_SERIAL * serial_oar_cost
         + WEIGHT_PARALLEL * parallel_oar_cost
         + WEIGHT_HEALTHY * healthy_tissue_cost;
+
+    println!("Total Cost: {}", total_cost);
     total_cost
 }

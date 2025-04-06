@@ -111,9 +111,11 @@ fn main() {
 
     println!("Rough Memory Size of Dose Matrix: {} MB", (N_SIZE * std::mem::size_of::<[f32; 1]>())/1024/1024);
 
-   let now = Instant::now();
+    let now = Instant::now();
     compute_dose(&mut dose_params);
+    println!("Time Taken Compute Dose {} Miliseconds", now.elapsed().as_millis());
+    println!();
     compute_cost(&mut dose_params, &mask_holder);
-    println!("Time Taken {} Miliseconds", now.elapsed().as_millis());
+    println!("Time Taken Compute cost and total: {} Miliseconds", now.elapsed().as_millis());
 }
 
