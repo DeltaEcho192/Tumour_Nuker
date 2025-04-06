@@ -1,3 +1,5 @@
+use crate::beam_utils::TissueBox;
+
 #[derive(Debug, Clone)]
 pub struct Vector {
     pub x: f32,
@@ -41,6 +43,14 @@ impl Vector {
             x: self.x * val,
             y: self.y * val,
             z: self.z * val,
+        }
+    }
+    
+    pub fn beam_direction(&self, tumour: &TissueBox) -> Vector {
+        Vector {
+            x: (tumour.x as f32 - self.x),
+            y: (tumour.y as f32 - self.y),
+            z: (tumour.z as f32 - self.z),
         }
     }
 }

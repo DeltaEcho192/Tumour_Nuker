@@ -93,24 +93,26 @@ pub fn generate_beam_entries(patient_box: &PatientBox) -> Vec<Vector> {
 pub struct ComputeDoseParams<const N: usize> {
     pub patient_box: PatientBox,
     pub beams: Vec<Vector>,
+    pub tumour: TissueBox,
     pub dose_matrix: Box<[f32; N]>,
 }
 
-const BEAM_RADIUS: f32 = 0.75;
+const BEAM_RADIUS: f32 = 1.5;
 const E_DEPOSITED: f32 = 0.50;
 const MU: f32 = 0.03;
 
 pub fn compute_dose<const N: usize>(params: &mut ComputeDoseParams<{ N }>) {
-    for beam in &params.beams {
-        let self_dot = beam.dot(&beam);
+    for beam_entry in &params.beams {
+        let tumour_vector = beam_entry.beam_direction(&params.tumour);
+        let self_dot = tumour_vector.dot(&tumour_vector);
         for x in 0..params.patient_box.x_size {
             for y in 0..params.patient_box.y_size {
                 for z in 0..params.patient_box.z_size {
                     let mut dose_val: f32 = 0.0;
                     let mut vector = Vector::new(x as f32, y as f32, z as f32);
-                    vector.calculate_offset(&beam);
+                    vector.calculate_offset(&beam_entry);
                     let dist = vector.dist_to_beam();
-                    let dot_prod = vector.dot(&beam);
+                    let dot_prod = vector.dot(&tumour_vector);
                     let projection_point = vector.mult_vec(dot_prod / self_dot);
                     let project_dist = vector.dist_to_vector(&projection_point);
                     if project_dist <= BEAM_RADIUS {
@@ -134,7 +136,7 @@ const WEIGHT_HEALTHY: f32 = 1.0;
 const D_PERSCRIBED: f32 = 40.0;
 const D_THRESHOLD_S: f32 = 0.0;
 const D_THRESHOLD_P: f32 = 0.0;
-const D_THRESHOLD_H: f32 = 0.375;
+const D_THRESHOLD_H: f32 = 0.150;
 
 pub fn compute_cost<const N: usize>(
     dose_params: &mut ComputeDoseParams<{ N }>,
@@ -164,7 +166,7 @@ pub fn compute_cost<const N: usize>(
                             }
                             TissueType::SerialOrgan => {
                                 mask_hit = true;
-                                serial_oar_cost += dose_params.dose_matrix[index];
+                                serial_oar_cost += (dose_params.dose_matrix[index] - D_THRESHOLD_S).max(0.0);
                             }
                             TissueType::ParallelOrgan => {
                                 mask_hit = true;
@@ -176,7 +178,7 @@ pub fn compute_cost<const N: usize>(
                 }
 
                 if !mask_hit {
-                    healthy_tissue_cost += dose_params.dose_matrix[index];
+                    healthy_tissue_cost += (dose_params.dose_matrix[index] - D_THRESHOLD_H).max(0.0);
                 }
             }
         }
@@ -196,7 +198,6 @@ pub fn compute_cost<const N: usize>(
         parallel_oar_cost = 0.0;
     }
 
-    healthy_tissue_cost = (healthy_tissue_cost - D_THRESHOLD_H).max(0.0);
     println!("Tumour Cost: {}", tumour_cost);
     println!("Serial Cost: {}", serial_oar_cost);
     println!("Parallel Cost: {}", parallel_oar_cost);
