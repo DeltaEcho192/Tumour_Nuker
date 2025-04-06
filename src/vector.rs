@@ -1,4 +1,4 @@
-use crate::{beam_utils::TissueBox, ga::crossover};
+use crate::beam_utils::TissueBox;
 
 #[derive(Debug, Clone)]
 pub struct Vector {

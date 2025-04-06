@@ -1,10 +1,11 @@
 use crate::mask::{Mask, MaskHolder};
+use log::debug;
 use crate::vector::Vector;
 use rand::Rng;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PatientBox {
     pub x_size: i64,
     pub y_size: i64,
@@ -17,7 +18,7 @@ impl PatientBox {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TissueBox {
     pub x: i64,
     pub y: i64,
@@ -200,16 +201,16 @@ pub fn compute_cost<const N: usize>(
         parallel_oar_cost = 0.0;
     }
 
-    println!("Tumour Cost: {}", tumour_cost);
-    println!("Serial Cost: {}", serial_oar_cost);
-    println!("Parallel Cost: {}", parallel_oar_cost);
-    println!("Healthy Tissue Cost: {}", healthy_tissue_cost);
+    debug!("Tumour Cost: {}", tumour_cost);
+    debug!("Serial Cost: {}", serial_oar_cost);
+    debug!("Parallel Cost: {}", parallel_oar_cost);
+    debug!("Healthy Tissue Cost: {}", healthy_tissue_cost);
 
     let total_cost: f32 = WEIGHT_TUMOUR * tumour_cost
         + WEIGHT_SERIAL * serial_oar_cost
         + WEIGHT_PARALLEL * parallel_oar_cost
         + WEIGHT_HEALTHY * healthy_tissue_cost;
 
-    println!("Total Cost: {}", total_cost);
+    debug!("Total Cost: {}", total_cost);
     total_cost
 }

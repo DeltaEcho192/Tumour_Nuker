@@ -2,6 +2,7 @@ use Tumour_Nuker::beam_utils::{
     ComputeDoseParams, PatientBox, TissueBox, TissueType, compute_cost, compute_dose,
     generate_beam_entries,
 };
+use Tumour_Nuker::ga::ga;
 use Tumour_Nuker::mask::Mask;
 use Tumour_Nuker::vector::Vector;
 use std::thread;
@@ -62,14 +63,14 @@ fn loop_test() {
 fn main() {
     println!("Running Tumour Nuker Optimizer");
     const PATIENT: PatientBox = PatientBox {
-        x_size: 200,
-        y_size: 100,
-        z_size: 40,
+        x_size: 100,
+        y_size: 50,
+        z_size: 30,
     };
 
     let tumour = TissueBox {
-        x: 35,
-        y: 40,
+        x: 40,
+        y: 35,
         z: 12,
         x_width: 5,
         y_width: 5,
@@ -78,8 +79,8 @@ fn main() {
     };
 
     let serial_organ = TissueBox {
-        x: 38,
-        y: 42,
+        x: 42,
+        y: 38,
         z: 18,
         x_width: 3,
         y_width: 3,
@@ -88,11 +89,11 @@ fn main() {
     };
 
     let parallel_organ = TissueBox {
-        x: 20,
-        y: 50,
+        x: 50,
+        y: 20,
         z: 12,
-        x_width: 15,
-        y_width: 30,
+        x_width: 30,
+        y_width: 15,
         z_width: 10,
         tissue_type: Some(TissueType::ParallelOrgan),
     };
@@ -105,26 +106,13 @@ fn main() {
     let beams_i = generate_beam_entries(&PATIENT);
 
     const N_SIZE: usize = PATIENT.grid_size() as usize;
-    let mut dose_params: ComputeDoseParams<{ N_SIZE }> = ComputeDoseParams {
-        patient_box: PATIENT,
-        beams: beams_i,
-        tumour: tumour,
-        dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
-    };
-
     println!(
         "Rough Memory Size of Dose Matrix: {} MB",
         (N_SIZE * std::mem::size_of::<[f32; 1]>()) / 1024 / 1024
     );
 
     let now = Instant::now();
-    compute_dose(&mut dose_params);
-    println!(
-        "Time Taken Compute Dose {} Miliseconds",
-        now.elapsed().as_millis()
-    );
-    println!();
-    compute_cost(&mut dose_params, &mask_holder);
+    ga::<{ N_SIZE }>(20, 10, PATIENT, tumour, mask_holder, 3);
     println!(
         "Time Taken Compute cost and total: {} Miliseconds",
         now.elapsed().as_millis()

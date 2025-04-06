@@ -1,5 +1,7 @@
 use crate::beam_utils::PatientBox;
-use crate::beam_utils::generate_beam_entries;
+use crate::beam_utils::TissueBox;
+use crate::beam_utils::{ComputeDoseParams, compute_cost, compute_dose, generate_beam_entries};
+use crate::mask::Mask;
 use crate::vector::Vector;
 use log::debug;
 use rand::Rng;
@@ -9,6 +11,25 @@ pub struct Indv {
     pub beams: Vec<Vector>,
     pub fitness: f32,
 }
+
+impl Indv {
+    pub fn calculate_fitness<const N_SIZE: usize>(
+        &mut self,
+        patient: &PatientBox,
+        tumour: &TissueBox,
+        mask_holder: &Vec<Mask>,
+    ) {
+        let mut dose_params: ComputeDoseParams<{ N_SIZE }> = ComputeDoseParams {
+            patient_box: patient.clone(),
+            beams: self.beams.clone(),
+            tumour: tumour.clone(),
+            dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
+        };
+        compute_dose(&mut dose_params);
+        self.fitness = compute_cost(&mut dose_params, &mask_holder);
+    }
+}
+
 pub fn create_initial_population(pop_size: usize, patient_box: &PatientBox) -> Vec<Indv> {
     let mut population: Vec<Indv> = vec![];
     for _n in 0..pop_size {
@@ -33,7 +54,7 @@ pub fn selection(population: &Vec<Indv>, tournament_size: usize) -> Vec<Indv> {
             break;
         }
 
-        let mut max_indv: Option<&Indv> = None;
+        let mut min_indv: Option<&Indv> = None;
         let mut prev: Vec<usize> = vec![];
         let mut count_tour = 0usize;
         loop {
@@ -45,31 +66,31 @@ pub fn selection(population: &Vec<Indv>, tournament_size: usize) -> Vec<Indv> {
                 continue;
             }
 
-            if max_indv
+            if min_indv
                 .unwrap_or(&Indv {
                     beams: vec![],
-                    fitness: 0.0,
+                    fitness: 100000000.0,
                 })
                 .fitness
-                < population[rng_idx].fitness
+                > population[rng_idx].fitness
             {
                 debug!("New Fitness: {}", population[rng_idx].fitness);
                 debug!(
                     "OLD Fitness: {}",
-                    max_indv
+                    min_indv
                         .unwrap_or(&Indv {
                             beams: vec![],
                             fitness: 0.0,
                         })
                         .fitness
                 );
-                max_indv = Some(&population[rng_idx]);
+                min_indv = Some(&population[rng_idx]);
             }
             count_tour += 1;
             prev.push(rng_idx);
         }
 
-        selection.push(max_indv.unwrap().clone());
+        selection.push(min_indv.unwrap().clone());
         count += 1;
     }
 
@@ -108,8 +129,73 @@ pub fn mutation() {
     todo!();
 }
 
-pub fn ga() {
-    todo!();
+pub fn ga<const N_SIZE: usize>(
+    population_size: usize,
+    generations: usize,
+    patient: PatientBox,
+    tumour: TissueBox,
+    mask_holder: Vec<Mask>,
+    tournament_size: usize,
+) {
+    let mut population = create_initial_population(population_size, &patient);
+    let mut best_in_gen: Vec<Indv> = vec![];
+    for generation in 0..generations {
+        for indv in &mut population {
+            indv.calculate_fitness::<{ N_SIZE }>(&patient, &tumour, &mask_holder);
+        }
+        let reproduce_pop = selection(&population, tournament_size);
+        let mut new_pop: Vec<Indv> = vec![];
+        let max_idx: usize = reproduce_pop.len();
+        let mut idx: usize = 0;
+        loop {
+            if (idx + 1) >= max_idx {
+                break;
+            }
+            let (child1, child2) = crossover(&reproduce_pop[idx], &reproduce_pop[idx + 1]);
+            new_pop.push(child1);
+            new_pop.push(child2);
+            idx += 2;
+        }
+        let mut min_indv: Option<&Indv> = None;
+        for indv in &population {
+            if min_indv
+                .unwrap_or(&Indv {
+                    beams: vec![],
+                    fitness: 10000000000.0,
+                })
+                .fitness
+                > indv.fitness
+            {
+                min_indv = Some(&indv);
+            }
+        }
+        new_pop[0] = min_indv.unwrap().clone();
+        best_in_gen.push(min_indv.unwrap().clone());
+        println!("Best Solution in Generation {} : {}", generation, min_indv.unwrap().fitness);
+        population = new_pop;
+        println!("Population Size: {}", population.len());
+        println!(
+            "Percentage Done: {} %",
+            (generation as f32 / generations as f32) * 100.0
+        );
+    }
+
+    let mut min_indv: Option<&Indv> = None;
+    for indv in &best_in_gen {
+        if min_indv
+            .unwrap_or(&Indv {
+                beams: vec![],
+                fitness: 100000000.0,
+            })
+        .fitness
+        > indv.fitness
+        {
+            min_indv = Some(&indv);
+        }
+    }
+
+    println!("Best Solution Len: {}", best_in_gen.len());
+    println!("Best Solution: {}", min_indv.unwrap().fitness);
 }
 
 #[cfg(test)]
@@ -136,7 +222,7 @@ mod tests {
         let ans = selection(&population, 2);
         assert_eq!(ans.len(), 3);
         for indv in ans {
-            assert_ne!(indv.fitness, 10.0);
+            assert_ne!(indv.fitness, 50.0);
         }
     }
 }
