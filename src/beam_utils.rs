@@ -1,6 +1,8 @@
-use crate::mask::{Mask, MaskHolder};
+use crate::mask::{Mask,  MaskHolder};
 use crate::vector::Vector;
 use rand::Rng;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 #[derive(Debug)]
 pub struct PatientBox {
@@ -33,7 +35,7 @@ pub enum TissueType {
     ParallelOrgan,
 }
 
-#[derive(Debug)]
+#[derive(Debug, EnumIter)]
 pub enum PatientBoxSide {
     LeftFace,
     RightFace,
@@ -78,6 +80,14 @@ pub fn compute_beam_entry(face: &PatientBoxSide, patient_box: &PatientBox) -> Ve
         ),
     };
     entry_point
+}
+
+pub fn generate_beam_entries(patient_box: &PatientBox) -> Vec<Vector> {
+    let mut beams: Vec<Vector> = vec![];
+    for face in PatientBoxSide::iter() {
+        beams.push(compute_beam_entry(&face, patient_box));
+    }
+    beams
 }
 
 pub struct ComputeDoseParams<const N: usize> {
@@ -128,7 +138,7 @@ const D_THRESHOLD_H: f32 = 0.375;
 
 pub fn compute_cost<const N: usize>(
     dose_params: &mut ComputeDoseParams<{ N }>,
-    masks: &MaskHolder,
+    masks: &Vec<Mask>,
 ) -> f32 {
     let mut tumour_cost: f32 = 0.0;
     let mut serial_oar_cost: f32 = 0.0;
@@ -143,7 +153,7 @@ pub fn compute_cost<const N: usize>(
                     * (y + dose_params.patient_box.z_size * z))
                     as usize;
                 let mut mask_hit: bool = false;
-                for mask in &masks.masks {
+                for mask in masks {
                     // Fix issue with multiple organs and the calculations
                     // being for per organ
                     if mask.bound_check(x, y, z) {
@@ -187,6 +197,11 @@ pub fn compute_cost<const N: usize>(
     }
 
     healthy_tissue_cost = (healthy_tissue_cost - D_THRESHOLD_H).max(0.0);
+    println!("Tumour Cost: {}", tumour_cost);
+    println!("Serial Cost: {}", serial_oar_cost);
+    println!("Parallel Cost: {}", parallel_oar_cost);
+    println!("Healthy Tissue Cost: {}", healthy_tissue_cost);
+
 
     let total_cost: f32 = WEIGHT_TUMOUR * tumour_cost
         + WEIGHT_SERIAL * serial_oar_cost

@@ -1,4 +1,5 @@
-use Tumour_Nuker::beam_utils;
+use Tumour_Nuker::beam_utils::{compute_dose, compute_cost, generate_beam_entries, ComputeDoseParams, PatientBox, TissueBox, TissueType};
+use Tumour_Nuker::mask::Mask;
 use Tumour_Nuker::vector::Vector;
 use std::thread;
 
@@ -55,6 +56,57 @@ fn loop_test() {
 }
 
 fn main() {
-    loop_test();
-    println!("Hello, world!");
+    println!("Running Tumour Nuker Optimizer");
+    const PATIENT: PatientBox = PatientBox {
+        x_size: 200,
+        y_size: 100,
+        z_size: 40,
+    };
+
+    let tumour = TissueBox {
+        x: 35,
+        y: 40,
+        z: 12,
+        x_width: 5,
+        y_width: 5,
+        z_width: 5,
+        tissue_type: Some(TissueType::Tumour),
+    };
+
+    let serial_organ = TissueBox {
+        x: 38,
+        y: 42,
+        z: 18,
+        x_width: 3,
+        y_width: 3,
+        z_width: 3,
+        tissue_type: Some(TissueType::SerialOrgan),
+    };
+
+    let parallel_organ = TissueBox {
+        x: 20,
+        y: 50,
+        z: 12,
+        x_width: 15,
+        y_width: 30,
+        z_width: 10,
+        tissue_type: Some(TissueType::ParallelOrgan),
+    };
+
+    let mut mask_holder: Vec<Mask> = vec![]; 
+    mask_holder.push(Mask::from_tissue_box(&tumour, &PATIENT));
+    mask_holder.push(Mask::from_tissue_box(&serial_organ, &PATIENT));
+    mask_holder.push(Mask::from_tissue_box(&parallel_organ, &PATIENT));
+
+    let beams_i = generate_beam_entries(&PATIENT);
+
+    const N_SIZE: usize = PATIENT.grid_size() as usize;
+    let mut dose_params: ComputeDoseParams<{N_SIZE}> = ComputeDoseParams {
+        patient_box: PATIENT,
+        beams: beams_i,
+        dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
+    };
+
+    compute_dose(&mut dose_params);
+    compute_cost(&mut dose_params, &mask_holder);
 }
