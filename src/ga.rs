@@ -1,6 +1,7 @@
 use crate::beam_utils::PatientBox;
 use crate::beam_utils::generate_beam_entries;
 use crate::vector::Vector;
+use log::debug;
 use rand::Rng;
 
 #[derive(Clone)]
@@ -52,13 +53,16 @@ pub fn selection(population: &Vec<Indv>, tournament_size: usize) -> Vec<Indv> {
                 .fitness
                 < population[rng_idx].fitness
             {
-                println!("New Fitness: {}", population[rng_idx].fitness);
-                println!("OLD Fitness: {}", max_indv
-                .unwrap_or(&Indv {
-                    beams: vec![],
-                    fitness: 0.0,
-                })
-                .fitness);
+                debug!("New Fitness: {}", population[rng_idx].fitness);
+                debug!(
+                    "OLD Fitness: {}",
+                    max_indv
+                        .unwrap_or(&Indv {
+                            beams: vec![],
+                            fitness: 0.0,
+                        })
+                        .fitness
+                );
                 max_indv = Some(&population[rng_idx]);
             }
             count_tour += 1;
@@ -72,12 +76,41 @@ pub fn selection(population: &Vec<Indv>, tournament_size: usize) -> Vec<Indv> {
     selection
 }
 
-pub fn crossover() {}
+pub fn crossover(parent1: &Indv, parent2: &Indv) -> (Indv, Indv) {
+    let mut rng = rand::rng();
+    let alpha: f32 = rng.random_range(0.0..1.0);
+    let child1 = Indv {
+        beams: calculate_beam_crossover(&parent1.beams, &parent2.beams, alpha),
+        fitness: 0.0,
+    };
+    let child2 = Indv {
+        beams: calculate_beam_crossover(&parent2.beams, &parent1.beams, alpha),
+        fitness: 0.0,
+    };
+    (child1, child2)
+}
 
-pub fn mutation() {}
+pub fn calculate_beam_crossover(
+    p1_beams: &Vec<Vector>,
+    p2_beams: &Vec<Vector>,
+    alpha: f32,
+) -> Vec<Vector> {
+    if p1_beams.len() != p2_beams.len() {
+        panic!("Amount of beams for crossover must be equal");
+    }
+    let mut new_beams: Vec<Vector> = vec![];
+    for i in 0..p1_beams.len() {
+        new_beams.push(p1_beams[i].crossover(&p2_beams[i], alpha));
+    }
+    new_beams
+}
+pub fn mutation() {
+    todo!();
+}
 
-pub fn ga() {}
-
+pub fn ga() {
+    todo!();
+}
 
 #[cfg(test)]
 mod tests {
@@ -85,7 +118,21 @@ mod tests {
 
     #[test]
     fn test_selection() {
-        let population: Vec<Indv> = [Indv {beams: vec![], fitness: 20.0},Indv {beams: vec![], fitness: 10.0},Indv {beams: vec![], fitness: 50.0},].to_vec();  
+        let population: Vec<Indv> = [
+            Indv {
+                beams: vec![],
+                fitness: 20.0,
+            },
+            Indv {
+                beams: vec![],
+                fitness: 10.0,
+            },
+            Indv {
+                beams: vec![],
+                fitness: 50.0,
+            },
+        ]
+        .to_vec();
         let ans = selection(&population, 2);
         assert_eq!(ans.len(), 3);
         for indv in ans {

@@ -1,4 +1,4 @@
-use crate::beam_utils::TissueBox;
+use crate::{beam_utils::TissueBox, ga::crossover};
 
 #[derive(Debug, Clone)]
 pub struct Vector {
@@ -52,5 +52,33 @@ impl Vector {
             y: (tumour.y as f32 - self.y),
             z: (tumour.z as f32 - self.z),
         }
+    }
+
+    pub fn crossover(&self, p2: &Vector, alpha: f32) -> Vector {
+        Vector {
+            x: crossover_val(&self.x, &p2.x, alpha),
+            y: crossover_val(&self.y, &p2.y, alpha),
+            z: crossover_val(&self.z, &p2.z, alpha),
+        }
+    }
+}
+
+fn crossover_val(x1: &f32, x2: &f32, alpha: f32) -> f32 {
+    let mut nx: f32 = 0.0;
+    if *x1 != 0.0 && *x2 != 0.0 {
+        nx = alpha * x1 + (1.0 - alpha) * x2;
+    }
+    nx
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_crossover_val() {
+        let ans = crossover_val(&3.0, &6.25, 0.5);
+        assert_eq!(ans, 4.625);
+        let ans = crossover_val(&0.0, &6.25, 0.5);
+        assert_eq!(ans, 0.0);
     }
 }
