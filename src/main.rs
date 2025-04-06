@@ -1,8 +1,11 @@
-use Tumour_Nuker::beam_utils::{compute_dose, compute_cost, generate_beam_entries, ComputeDoseParams, PatientBox, TissueBox, TissueType};
+use Tumour_Nuker::beam_utils::{
+    ComputeDoseParams, PatientBox, TissueBox, TissueType, compute_cost, compute_dose,
+    generate_beam_entries,
+};
 use Tumour_Nuker::mask::Mask;
-use std::time::Instant;
 use Tumour_Nuker::vector::Vector;
 use std::thread;
+use std::time::Instant;
 
 fn loop_test() {
     println!("Run Loop test");
@@ -94,7 +97,7 @@ fn main() {
         tissue_type: Some(TissueType::ParallelOrgan),
     };
 
-    let mut mask_holder: Vec<Mask> = vec![]; 
+    let mut mask_holder: Vec<Mask> = vec![];
     mask_holder.push(Mask::from_tissue_box(&tumour, &PATIENT));
     mask_holder.push(Mask::from_tissue_box(&serial_organ, &PATIENT));
     mask_holder.push(Mask::from_tissue_box(&parallel_organ, &PATIENT));
@@ -102,20 +105,28 @@ fn main() {
     let beams_i = generate_beam_entries(&PATIENT);
 
     const N_SIZE: usize = PATIENT.grid_size() as usize;
-    let mut dose_params: ComputeDoseParams<{N_SIZE}> = ComputeDoseParams {
+    let mut dose_params: ComputeDoseParams<{ N_SIZE }> = ComputeDoseParams {
         patient_box: PATIENT,
         beams: beams_i,
         tumour: tumour,
         dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
     };
 
-    println!("Rough Memory Size of Dose Matrix: {} MB", (N_SIZE * std::mem::size_of::<[f32; 1]>())/1024/1024);
+    println!(
+        "Rough Memory Size of Dose Matrix: {} MB",
+        (N_SIZE * std::mem::size_of::<[f32; 1]>()) / 1024 / 1024
+    );
 
     let now = Instant::now();
     compute_dose(&mut dose_params);
-    println!("Time Taken Compute Dose {} Miliseconds", now.elapsed().as_millis());
+    println!(
+        "Time Taken Compute Dose {} Miliseconds",
+        now.elapsed().as_millis()
+    );
     println!();
     compute_cost(&mut dose_params, &mask_holder);
-    println!("Time Taken Compute cost and total: {} Miliseconds", now.elapsed().as_millis());
+    println!(
+        "Time Taken Compute cost and total: {} Miliseconds",
+        now.elapsed().as_millis()
+    );
 }
-

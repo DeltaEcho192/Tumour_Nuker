@@ -45,7 +45,7 @@ impl Vector {
             z: self.z * val,
         }
     }
-    
+
     pub fn beam_direction(&self, tumour: &TissueBox) -> Vector {
         Vector {
             x: (tumour.x as f32 - self.x),

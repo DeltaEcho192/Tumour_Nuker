@@ -1,4 +1,4 @@
-use crate::mask::{Mask,  MaskHolder};
+use crate::mask::{Mask, MaskHolder};
 use crate::vector::Vector;
 use rand::Rng;
 use strum::IntoEnumIterator;
@@ -166,7 +166,8 @@ pub fn compute_cost<const N: usize>(
                             }
                             TissueType::SerialOrgan => {
                                 mask_hit = true;
-                                serial_oar_cost += (dose_params.dose_matrix[index] - D_THRESHOLD_S).max(0.0);
+                                serial_oar_cost +=
+                                    (dose_params.dose_matrix[index] - D_THRESHOLD_S).max(0.0);
                             }
                             TissueType::ParallelOrgan => {
                                 mask_hit = true;
@@ -178,7 +179,8 @@ pub fn compute_cost<const N: usize>(
                 }
 
                 if !mask_hit {
-                    healthy_tissue_cost += (dose_params.dose_matrix[index] - D_THRESHOLD_H).max(0.0);
+                    healthy_tissue_cost +=
+                        (dose_params.dose_matrix[index] - D_THRESHOLD_H).max(0.0);
                 }
             }
         }
@@ -202,7 +204,6 @@ pub fn compute_cost<const N: usize>(
     println!("Serial Cost: {}", serial_oar_cost);
     println!("Parallel Cost: {}", parallel_oar_cost);
     println!("Healthy Tissue Cost: {}", healthy_tissue_cost);
-
 
     let total_cost: f32 = WEIGHT_TUMOUR * tumour_cost
         + WEIGHT_SERIAL * serial_oar_cost
