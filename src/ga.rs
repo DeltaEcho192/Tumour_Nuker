@@ -28,6 +28,15 @@ impl Indv {
         compute_dose(&mut dose_params);
         self.fitness = compute_cost(&mut dose_params, &mask_holder);
     }
+    pub fn mutation(&mut self, patient: &PatientBox, mutation_prop: f32, mutation_bound: f32) {
+        let mut rng = rand::rng();
+        let draw: f32 = rng.random_range(0.0..1.0);
+        if draw <= mutation_prop {
+            for beam in &mut self.beams {
+                beam.mutate(mutation_bound, &patient);
+            }
+        }
+    }
 }
 
 pub fn create_initial_population(pop_size: usize, patient_box: &PatientBox) -> Vec<Indv> {
@@ -125,9 +134,9 @@ pub fn calculate_beam_crossover(
     }
     new_beams
 }
-pub fn mutation() {
-    todo!();
-}
+
+const MUTATION_PROB: f32 = 0.25;
+const MUTATION_BOUND: f32 = 10.0;
 
 pub fn ga<const N_SIZE: usize>(
     population_size: usize,
@@ -151,7 +160,9 @@ pub fn ga<const N_SIZE: usize>(
             if (idx + 1) >= max_idx {
                 break;
             }
-            let (child1, child2) = crossover(&reproduce_pop[idx], &reproduce_pop[idx + 1]);
+            let (mut child1, mut child2) = crossover(&reproduce_pop[idx], &reproduce_pop[idx + 1]);
+            child1.mutation(&patient, MUTATION_PROB, MUTATION_BOUND);
+            child2.mutation(&patient, MUTATION_PROB, MUTATION_BOUND);
             new_pop.push(child1);
             new_pop.push(child2);
             idx += 2;

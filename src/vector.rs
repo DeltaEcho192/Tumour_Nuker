@@ -1,6 +1,7 @@
-use crate::beam_utils::TissueBox;
+use crate::beam_utils::{PatientBox, TissueBox};
+use rand::Rng;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Vector {
     pub x: f32,
     pub y: f32,
@@ -61,6 +62,23 @@ impl Vector {
             z: crossover_val(&self.z, &p2.z, alpha),
         }
     }
+
+    pub fn mutate(&mut self, mutation_bound: f32, patient: &PatientBox) {
+        self.x = mutate_val(&self.x, mutation_bound, patient.x_size as f32);
+        self.y = mutate_val(&self.y, mutation_bound, patient.y_size as f32);
+        self.z = mutate_val(&self.z, mutation_bound, patient.z_size as f32);
+    }
+}
+
+fn mutate_val(val: &f32, max_bound: f32, upper_bound: f32) -> f32 {
+    if *val != 0.0 {
+        let mut rng = rand::rng();
+        let draw: f32 = rng.random_range(-max_bound..max_bound);
+        let nv = (val + draw).max(0.0).min(upper_bound); 
+        nv
+    } else {
+        0.0
+    }
 }
 
 fn crossover_val(x1: &f32, x2: &f32, alpha: f32) -> f32 {
@@ -70,6 +88,7 @@ fn crossover_val(x1: &f32, x2: &f32, alpha: f32) -> f32 {
     }
     nx
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
