@@ -1,3 +1,5 @@
+use std::thread;
+use std::sync::{Arc, Mutex, RwLock};
 use crate::mask::{Mask, MaskHolder};
 use log::debug;
 use crate::vector::Vector;
@@ -95,7 +97,7 @@ pub struct ComputeDoseParams<const N: usize> {
     pub patient_box: PatientBox,
     pub beams: Vec<Vector>,
     pub tumour: TissueBox,
-    pub dose_matrix: Box<[f32; N]>,
+    pub dose_matrix: Arc<RwLock<Box<[f32; N]>>>,
 }
 
 const BEAM_RADIUS: f32 = 1.5;
@@ -103,36 +105,53 @@ const E_DEPOSITED: f32 = 0.50;
 const MU: f32 = 0.03;
 
 pub fn compute_dose<const N: usize>(params: &mut ComputeDoseParams<{ N }>) {
-    for beam_entry in &params.beams {
-        let tumour_vector = beam_entry.beam_direction(&params.tumour);
-        let self_dot = tumour_vector.dot(&tumour_vector);
-        for x in 0..params.patient_box.x_size {
-            for y in 0..params.patient_box.y_size {
-                for z in 0..params.patient_box.z_size {
-                    let mut dose_val: f32 = 0.0;
-                    let mut vector = Vector::new(x as f32, y as f32, z as f32);
-                    vector.calculate_offset(&beam_entry);
-                    let dist = vector.dist_to_beam();
-                    let dot_prod = vector.dot(&tumour_vector);
-                    let projection_point = vector.mult_vec(dot_prod / self_dot);
-                    let project_dist = vector.dist_to_vector(&projection_point);
-                    if project_dist <= BEAM_RADIUS {
-                        dose_val = E_DEPOSITED * (dist * -MU).exp();
+        for beam_entry in &params.beams {
+        thread::scope(|s| {
+            let tumour_vector = beam_entry.beam_direction(&params.tumour);
+            let self_dot = tumour_vector.dot(&tumour_vector);
+            //let mut handle_vec = Vec::new();
+            let local_ymax = params.patient_box.y_size; 
+            let local_zmax = params.patient_box.z_size; 
+            let local_xmax = params.patient_box.x_size; 
+            for x in 0..local_xmax {
+                let dose_matrix_clone = Arc::clone(&params.dose_matrix);
+                s.spawn(move || {
+                    let mut local_dose: Vec<f32> = vec![];
+                    for y in 0..local_ymax {
+                        for z in 0..local_zmax {
+                            let mut dose_val: f32 = 0.0;
+                            let mut vector = Vector::new(x as f32, y as f32, z as f32);
+                            vector.calculate_offset(&beam_entry);
+                            let dist = vector.dist_to_beam();
+                            let dot_prod = vector.dot(&tumour_vector);
+                            let projection_point = vector.mult_vec(dot_prod / self_dot);
+                            let project_dist = vector.dist_to_vector(&projection_point);
+                            if project_dist <= BEAM_RADIUS {
+                                dose_val = E_DEPOSITED * (dist * -MU).exp();
+                            }
+                            local_dose.push(dose_val);
+                            //params.dose_matrix[index] += dose_val;
+                        }
                     }
-                    let index: usize = (x + params.patient_box.y_size
-                        * (y + params.patient_box.z_size * z))
-                        as usize;
-                    params.dose_matrix[index] += dose_val;
-                }
+                    for i in 0..local_dose.len() {
+                        let idx = x as usize + i;        
+                        let mut w = dose_matrix_clone.write().unwrap();
+                        w[idx] = local_dose[i];
+                    }
+                });
             }
-        }
+
+            //for handle in handle_vec {
+            //    handle.join().unwrap();
+            //}
+        });
     }
 }
 
 const WEIGHT_TUMOUR: f32 = 1.0;
 const WEIGHT_SERIAL: f32 = 1.0;
 const WEIGHT_PARALLEL: f32 = 1.0;
-const WEIGHT_HEALTHY: f32 = 1.0;
+const WEIGHT_HEALTHY: f32 = 0.75;
 
 const D_PERSCRIBED: f32 = 40.0;
 const D_THRESHOLD_S: f32 = 0.0;
@@ -149,6 +168,7 @@ pub fn compute_cost<const N: usize>(
     let mut parallel_oar_intersections: i64 = 0;
     let mut healthy_tissue_cost: f32 = 0.0;
 
+    let dose_maxtrix_read = dose_params.dose_matrix.read().unwrap();
     for x in 0..dose_params.patient_box.x_size {
         for y in 0..dose_params.patient_box.y_size {
             for z in 0..dose_params.patient_box.z_size {
@@ -163,16 +183,16 @@ pub fn compute_cost<const N: usize>(
                         match mask.t_type {
                             TissueType::Tumour => {
                                 mask_hit = true;
-                                tumour_cost += dose_params.dose_matrix[index];
+                                tumour_cost += dose_maxtrix_read[index];
                             }
                             TissueType::SerialOrgan => {
                                 mask_hit = true;
                                 serial_oar_cost +=
-                                    (dose_params.dose_matrix[index] - D_THRESHOLD_S).max(0.0);
+                                    (dose_maxtrix_read[index] - D_THRESHOLD_S).max(0.0);
                             }
                             TissueType::ParallelOrgan => {
                                 mask_hit = true;
-                                parallel_oar_cost += dose_params.dose_matrix[index];
+                                parallel_oar_cost += dose_maxtrix_read[index];
                                 parallel_oar_intersections += 1;
                             }
                         }
@@ -181,7 +201,7 @@ pub fn compute_cost<const N: usize>(
 
                 if !mask_hit {
                     healthy_tissue_cost +=
-                        (dose_params.dose_matrix[index] - D_THRESHOLD_H).max(0.0);
+                        (dose_maxtrix_read[index] - D_THRESHOLD_H).max(0.0);
                 }
             }
         }

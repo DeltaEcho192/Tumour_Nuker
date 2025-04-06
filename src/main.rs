@@ -112,7 +112,7 @@ fn main() {
     );
 
     let now = Instant::now();
-    ga::<{ N_SIZE }>(20, 10, PATIENT, tumour, mask_holder, 3);
+    ga::<{ N_SIZE }>(25, 20, PATIENT, tumour, mask_holder, 5);
     println!(
         "Time Taken Compute cost and total: {} Miliseconds",
         now.elapsed().as_millis()

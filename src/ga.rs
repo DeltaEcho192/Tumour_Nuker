@@ -3,6 +3,7 @@ use crate::beam_utils::TissueBox;
 use crate::beam_utils::{ComputeDoseParams, compute_cost, compute_dose, generate_beam_entries};
 use crate::mask::Mask;
 use crate::vector::Vector;
+use std::sync::{RwLock, Arc};
 use log::debug;
 use rand::Rng;
 
@@ -23,7 +24,7 @@ impl Indv {
             patient_box: patient.clone(),
             beams: self.beams.clone(),
             tumour: tumour.clone(),
-            dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
+            dose_matrix: Arc::new(RwLock::new(vec![0f32; N_SIZE].try_into().unwrap())),
         };
         compute_dose(&mut dose_params);
         self.fitness = compute_cost(&mut dose_params, &mask_holder);
