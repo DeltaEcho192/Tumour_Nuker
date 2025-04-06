@@ -1,4 +1,4 @@
-use crate::beam_utils::{PatientBox, TissueBox};
+use crate::beam_utils::{PatientBox, TissueBox, TissueType};
 use std::cmp;
 
 pub struct MaskHolder {
@@ -12,6 +12,7 @@ pub struct Mask {
     pub y1: i64,
     pub z0: i64,
     pub z1: i64,
+    pub t_type: TissueType,
 }
 
 impl Mask {
@@ -23,6 +24,7 @@ impl Mask {
             y1: cmp::min(p_box.y_size, t_box.y + t_box.y_width / 2),
             z0: cmp::max(0, t_box.z - t_box.z_width / 2),
             z1: cmp::min(p_box.z_size, t_box.z + t_box.z_width / 2),
+            t_type: t_box.tissue_type.as_ref().unwrap().clone(),
         }
     }
 
