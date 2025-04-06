@@ -18,10 +18,10 @@ impl Vector {
         self.x * v2.x + self.y * v2.y + self.z * v2.z
     }
 
-    pub fn calculate_offset(&mut self, beam_x: i32, beam_y: i32, beam_z: i32) {
-        self.x = self.x - beam_x as f32;
-        self.y = self.y - beam_y as f32;
-        self.z = self.z - beam_z as f32;
+    pub fn calculate_offset(&mut self, v2: &Vector) {
+        self.x = self.x - v2.x as f32;
+        self.y = self.y - v2.y as f32;
+        self.z = self.z - v2.z as f32;
     }
 
     pub fn dist_to_beam(&self) -> f32 {

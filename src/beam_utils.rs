@@ -1,7 +1,5 @@
 use crate::vector::Vector;
 use rand::Rng;
-use rand::distr::Uniform;
-use rand::distr::uniform::UniformFloat;
 
 #[derive(Debug)]
 pub struct PatientBox {
@@ -80,4 +78,36 @@ pub fn compute_beam_entry(face: &PatientBoxSide, patient_box: &PatientBox) -> Ve
         ),
     };
     entry_point
+}
+
+
+pub struct ComputeDoseParams {
+    pub patient_box: PatientBox,
+    pub beams: Vec<Vector>,
+}
+
+pub fn compute_dose(params: &ComputeDoseParams) {
+
+    for beam in params.beams {
+        let self_dot = beam.dot(&beam);
+
+        for x in 0..params.patient_box.x_size {
+            for y in 0..params.patient_box.y_size {
+                for z in 0..params.patient_box.z_size {
+                    let mut dose_val: f32 = 0.0;
+                    let mut vector = Vector::new(x as f32, y as f32, z as f32);
+                    vector.calculate_offset(&beam);
+                    let dist = vector.dist_to_beam();
+                    let dot_prod = vector.dot(&beam);
+                    let projection_point = vector.mult_vec(dot_prod / self_dot);
+                    let project_dist = vector.dist_to_vector(&projection_point);
+                    if project_dist <= 0.75 {
+                        dose_val = project_dist;
+                    }
+                    //let index: usize = (x + grid_y * (y + grid_z * z)) as usize;
+                    dose.push(dose_val);
+                }
+            }
+        }
+    }
 }
