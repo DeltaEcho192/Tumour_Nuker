@@ -1,7 +1,6 @@
 use std::thread;
-
-use std::sync::{Arc, Mutex, RwLock};
-use crate::mask::{Mask, MaskHolder};
+use std::sync::{Arc, RwLock};
+use crate::mask::Mask;
 use log::debug;
 use crate::vector::Vector;
 use rand::Rng;
@@ -110,21 +109,16 @@ pub fn compute_dose<const N: usize>(params: &mut ComputeDoseParams<{ N }>) {
         for beam_entry in beams_vec {
             let tumour_vector = beam_entry.beam_direction(&params.tumour.clone());
             let self_dot = tumour_vector.dot(&tumour_vector);
-            //let mut handle_vec = Vec::new();
+            let mut handle_vec = Vec::new();
             let local_ymax = params.patient_box.y_size; 
             let local_zmax = params.patient_box.z_size; 
             let local_xmax = params.patient_box.x_size; 
-            let dose_matrix_clone = Arc::clone(&params.dose_matrix);
-            let mut w = dose_matrix_clone.write().unwrap();
             for x in 0..local_xmax {
-                //handle_vec.push(thread::spawn(move || {
-                    //let mut local_dose: Vec<f32> = vec![];
+                let dose_matrix_clone = Arc::clone(&params.dose_matrix);
+                handle_vec.push(thread::spawn(move || {
+                    let mut local_dose: Vec<f32> = vec![];
                     for y in 0..local_ymax {
                         for z in 0..local_zmax {
-
-                            let index: usize = (x + params.patient_box.y_size
-                            * (y + params.patient_box.z_size * z))
-                            as usize;
                             let mut dose_val: f32 = 0.0;
                             let mut vector = Vector::new(x as f32, y as f32, z as f32);
                             vector.calculate_offset(&beam_entry);
@@ -135,23 +129,26 @@ pub fn compute_dose<const N: usize>(params: &mut ComputeDoseParams<{ N }>) {
                             if project_dist <= BEAM_RADIUS {
                                 dose_val = E_DEPOSITED * (dist * -MU).exp();
                             }
-                            //local_dose.push(dose_val);
-                            //params.dose_matrix[index] += dose_val;
-                            w[index] += dose_val;
+                            local_dose.push(dose_val);
                         }
                     }
-                    //let mut w = dose_matrix_clone.write().unwrap();
-                    ////println!("Local Dose Length: {}", local_dose.len());
-                    //for i in 0..local_dose.len() {
-                    //    let idx = x as usize + i;        
-                    //    w[idx] += local_dose[i];
-                    //}
-                //}));
+                    let mut w = dose_matrix_clone.write().unwrap();
+                    let mut counter = 0usize;
+                    for y in 0..local_ymax {
+                        for z in 0..local_zmax {
+                            let idx: usize = (x + local_ymax
+                            * (y + local_zmax * z))
+                            as usize;
+                            w[idx] += local_dose[counter];
+                            counter += 1;
+                        }
+                    }
+                }));
             }
 
-            //for handle in handle_vec {
-            //    handle.join().unwrap();
-            //}
+            for handle in handle_vec {
+                handle.join().unwrap();
+            }
     }
 }
 
@@ -218,7 +215,6 @@ pub fn compute_cost<const N: usize>(
     if tumour_cost > 0.0 {
         tumour_cost = (tumour_cost - D_PERSCRIBED).abs();
     } else {
-        println!("Exceed cost");
         tumour_cost = 1e6;
     }
     serial_oar_cost = (serial_oar_cost - D_THRESHOLD_S).max(0.0);
