@@ -1,9 +1,7 @@
-use tumour_nuker::beam_utils::{
-    PatientBox, TissueBox, TissueType,
-};
+use std::time::Instant;
+use tumour_nuker::beam_utils::{PatientBox, TissueBox, TissueType};
 use tumour_nuker::ga::ga;
 use tumour_nuker::mask::Mask;
-use std::time::Instant;
 
 fn main() {
     println!("Running Tumour Nuker Optimizer");
@@ -55,7 +53,7 @@ fn main() {
     );
 
     let now = Instant::now();
-    ga::<{ N_SIZE }>(20, 10, PATIENT, tumour, mask_holder, 5);
+    ga::<{ N_SIZE }>(50, 100, PATIENT, tumour, mask_holder, 5);
     println!(
         "Time Taken Compute cost and total: {} Miliseconds",
         now.elapsed().as_millis()

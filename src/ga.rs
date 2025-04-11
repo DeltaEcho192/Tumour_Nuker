@@ -1,9 +1,10 @@
 use crate::beam_utils::PatientBox;
 use crate::beam_utils::TissueBox;
-use crate::beam_utils::{ComputeDoseParamsIter, compute_costIter, compute_dose_iter, generate_beam_entries};
+use crate::beam_utils::{
+    ComputeDoseParamsIter, compute_cost_iter, compute_dose_iter, generate_beam_entries,
+};
 use crate::mask::Mask;
 use crate::vector::Vector;
-use std::sync::{RwLock, Arc};
 use log::debug;
 use rand::Rng;
 
@@ -27,7 +28,7 @@ impl Indv {
             dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
         };
         compute_dose_iter(&mut dose_params);
-        self.fitness = compute_costIter(&mut dose_params, &mask_holder);
+        self.fitness = compute_cost_iter(&mut dose_params, &mask_holder);
     }
     pub fn mutation(&mut self, patient: &PatientBox, mutation_prop: f32, mutation_bound: f32) {
         let mut rng = rand::rng();
@@ -136,7 +137,7 @@ pub fn calculate_beam_crossover(
     new_beams
 }
 
-const MUTATION_PROB: f32 = 0.25;
+const MUTATION_PROB: f32 = 0.025;
 const MUTATION_BOUND: f32 = 10.0;
 
 pub fn ga<const N_SIZE: usize>(
@@ -183,7 +184,11 @@ pub fn ga<const N_SIZE: usize>(
         }
         new_pop[0] = min_indv.unwrap().clone();
         best_in_gen.push(min_indv.unwrap().clone());
-        println!("Best Solution in Generation {} : {}", generation, min_indv.unwrap().fitness);
+        println!(
+            "Best Solution in Generation {} : {}",
+            generation,
+            min_indv.unwrap().fitness
+        );
         population = new_pop;
         println!("Population Size: {}", population.len());
         println!(
@@ -199,8 +204,8 @@ pub fn ga<const N_SIZE: usize>(
                 beams: vec![],
                 fitness: 100000000.0,
             })
-        .fitness
-        > indv.fitness
+            .fitness
+            > indv.fitness
         {
             min_indv = Some(&indv);
         }

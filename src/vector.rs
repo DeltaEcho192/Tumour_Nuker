@@ -74,7 +74,7 @@ fn mutate_val(val: &f32, max_bound: f32, upper_bound: f32) -> f32 {
     if *val != 0.0 {
         let mut rng = rand::rng();
         let draw: f32 = rng.random_range(-max_bound..max_bound);
-        let nv = (val + draw).max(0.0).min(upper_bound); 
+        let nv = (val + draw).max(0.0).min(upper_bound);
         nv
     } else {
         0.0

@@ -1,12 +1,12 @@
-use std::thread;
-use std::sync::{Arc, RwLock};
 use crate::mask::Mask;
-use log::debug;
 use crate::vector::Vector;
+use log::debug;
 use rand::Rng;
+use rayon::prelude::*;
+use std::sync::{Arc, RwLock};
+use std::thread;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct PatientBox {
@@ -113,50 +113,63 @@ const E_DEPOSITED: f32 = 0.50;
 const MU: f32 = 0.03;
 
 pub fn compute_dose<const N: usize>(params: &mut ComputeDoseParams<{ N }>) {
-        let beams_vec = params.beams.clone();
-        for beam_entry in beams_vec {
-            let tumour_vector = beam_entry.beam_direction(&params.tumour.clone());
-            let self_dot = tumour_vector.dot(&tumour_vector);
-            let mut handle_vec = Vec::new();
-            let local_ymax = params.patient_box.y_size; 
-            let local_zmax = params.patient_box.z_size; 
-            let local_xmax = params.patient_box.x_size; 
-            for x in 0..local_xmax {
-                let dose_matrix_clone = Arc::clone(&params.dose_matrix);
-                handle_vec.push(thread::spawn(move || {
-                    let mut local_dose: Vec<f32> = vec![];
-                    for y in 0..local_ymax {
-                        for z in 0..local_zmax {
-                            let mut dose_val: f32 = 0.0;
-                            let test_idx = to_index(x as usize, y as usize, z as usize, local_xmax as usize, local_ymax as usize);
-                            let coords = to_coords(test_idx as i64, local_xmax, local_ymax);
-                            let mut vector = Vector::new(coords.0 as f32, coords.1 as f32, coords.2 as f32);
-                            vector.calculate_offset(&beam_entry);
-                            let dist = vector.dist_to_beam();
-                            let dot_prod = vector.dot(&tumour_vector);
-                            let projection_point = vector.mult_vec(dot_prod / self_dot);
-                            let project_dist = vector.dist_to_vector(&projection_point);
-                            if project_dist <= BEAM_RADIUS {
-                                dose_val = E_DEPOSITED * (dist * -MU).exp();
-                            }
-                            local_dose.push(dose_val);
+    let beams_vec = params.beams.clone();
+    for beam_entry in beams_vec {
+        let tumour_vector = beam_entry.beam_direction(&params.tumour.clone());
+        let self_dot = tumour_vector.dot(&tumour_vector);
+        let mut handle_vec = Vec::new();
+        let local_ymax = params.patient_box.y_size;
+        let local_zmax = params.patient_box.z_size;
+        let local_xmax = params.patient_box.x_size;
+        for x in 0..local_xmax {
+            let dose_matrix_clone = Arc::clone(&params.dose_matrix);
+            handle_vec.push(thread::spawn(move || {
+                let mut local_dose: Vec<f32> = vec![];
+                for y in 0..local_ymax {
+                    for z in 0..local_zmax {
+                        let mut dose_val: f32 = 0.0;
+                        let test_idx = to_index(
+                            x as usize,
+                            y as usize,
+                            z as usize,
+                            local_xmax as usize,
+                            local_ymax as usize,
+                        );
+                        let coords = to_coords(test_idx as i64, local_xmax, local_ymax);
+                        let mut vector =
+                            Vector::new(coords.0 as f32, coords.1 as f32, coords.2 as f32);
+                        vector.calculate_offset(&beam_entry);
+                        let dist = vector.dist_to_beam();
+                        let dot_prod = vector.dot(&tumour_vector);
+                        let projection_point = vector.mult_vec(dot_prod / self_dot);
+                        let project_dist = vector.dist_to_vector(&projection_point);
+                        if project_dist <= BEAM_RADIUS {
+                            dose_val = E_DEPOSITED * (dist * -MU).exp();
                         }
+                        local_dose.push(dose_val);
                     }
-                    let mut w = dose_matrix_clone.write().unwrap();
-                    let mut counter = 0usize;
-                    for y in 0..local_ymax {
-                        for z in 0..local_zmax {
-                            let test_idx = to_index(x as usize, y as usize, z as usize, local_xmax as usize, local_ymax as usize);
-                            w[test_idx] += local_dose[counter];
-                            counter += 1;
-                        }
+                }
+                let mut w = dose_matrix_clone.write().unwrap();
+                let mut counter = 0usize;
+                for y in 0..local_ymax {
+                    for z in 0..local_zmax {
+                        let test_idx = to_index(
+                            x as usize,
+                            y as usize,
+                            z as usize,
+                            local_xmax as usize,
+                            local_ymax as usize,
+                        );
+                        w[test_idx] += local_dose[counter];
+                        counter += 1;
                     }
-                }));
-            }
+                }
+            }));
+        }
 
-            for handle in handle_vec {
-                handle.join().unwrap();
-            }
+        for handle in handle_vec {
+            handle.join().unwrap();
+        }
     }
 }
 
@@ -168,7 +181,7 @@ fn to_coords(index: i64, x_max: i64, y_max: i64) -> (i64, i64, i64) {
 }
 
 fn to_index(x: usize, y: usize, z: usize, x_max: usize, y_max: usize) -> usize {
-    x + y * x_max + z * x_max * y_max 
+    x + y * x_max + z * x_max * y_max
 }
 
 pub fn compute_dose_iter<const N: usize>(params: &mut ComputeDoseParamsIter<{ N }>) {
@@ -176,21 +189,28 @@ pub fn compute_dose_iter<const N: usize>(params: &mut ComputeDoseParamsIter<{ N 
     for beam_entry in beams_vec {
         let tumour_vector = beam_entry.beam_direction(&params.tumour.clone());
         let self_dot = tumour_vector.dot(&tumour_vector);
-        let local_ymax = params.patient_box.y_size; 
-        let local_xmax = params.patient_box.x_size; 
-        params.dose_matrix.par_iter_mut().enumerate().for_each(|(idx, val)| {
-            let mapped_idx = to_coords(idx.try_into().unwrap(), local_xmax, local_ymax);
-            let mut vector = Vector::new(mapped_idx.0 as f32, mapped_idx.1 as f32, mapped_idx.2 as f32);
-            vector.calculate_offset(&beam_entry);
-            let dist = vector.dist_to_beam();
-            let dot_prod = vector.dot(&tumour_vector);
-            let projection_point = vector.mult_vec(dot_prod / self_dot);
-            let project_dist = vector.dist_to_vector(&projection_point);
-            if project_dist <= BEAM_RADIUS {
-                *val += E_DEPOSITED * (dist * -MU).exp();
-            }
-        });
-
+        let local_ymax = params.patient_box.y_size;
+        let local_xmax = params.patient_box.x_size;
+        params
+            .dose_matrix
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(idx, val)| {
+                let mapped_idx = to_coords(idx.try_into().unwrap(), local_xmax, local_ymax);
+                let mut vector = Vector::new(
+                    mapped_idx.0 as f32,
+                    mapped_idx.1 as f32,
+                    mapped_idx.2 as f32,
+                );
+                vector.calculate_offset(&beam_entry);
+                let dist = vector.dist_to_beam();
+                let dot_prod = vector.dot(&tumour_vector);
+                let projection_point = vector.mult_vec(dot_prod / self_dot);
+                let project_dist = vector.dist_to_vector(&projection_point);
+                if project_dist <= BEAM_RADIUS {
+                    *val += E_DEPOSITED * (dist * -MU).exp();
+                }
+            });
     }
 }
 
@@ -218,7 +238,13 @@ pub fn compute_cost<const N: usize>(
     for x in 0..dose_params.patient_box.x_size {
         for y in 0..dose_params.patient_box.y_size {
             for z in 0..dose_params.patient_box.z_size {
-                let index = to_index(x as usize, y as usize, z as usize, dose_params.patient_box.x_size as usize, dose_params.patient_box.y_size as usize);
+                let index = to_index(
+                    x as usize,
+                    y as usize,
+                    z as usize,
+                    dose_params.patient_box.x_size as usize,
+                    dose_params.patient_box.y_size as usize,
+                );
                 let mut mask_hit: bool = false;
                 for mask in masks {
                     // Fix issue with multiple organs and the calculations
@@ -245,8 +271,7 @@ pub fn compute_cost<const N: usize>(
                 }
 
                 if !mask_hit {
-                    healthy_tissue_cost +=
-                        (dose_maxtrix_read[index] - D_THRESHOLD_H).max(0.0);
+                    healthy_tissue_cost += (dose_maxtrix_read[index] - D_THRESHOLD_H).max(0.0);
                 }
             }
         }
@@ -280,7 +305,7 @@ pub fn compute_cost<const N: usize>(
     total_cost
 }
 
-pub fn compute_costIter<const N: usize>(
+pub fn compute_cost_iter<const N: usize>(
     dose_params: &mut ComputeDoseParamsIter<{ N }>,
     masks: &Vec<Mask>,
 ) -> f32 {
@@ -293,7 +318,13 @@ pub fn compute_costIter<const N: usize>(
     for x in 0..dose_params.patient_box.x_size {
         for y in 0..dose_params.patient_box.y_size {
             for z in 0..dose_params.patient_box.z_size {
-                let index: usize = to_index(x as usize, y as usize, z as usize, dose_params.patient_box.x_size as usize, dose_params.patient_box.y_size as usize);
+                let index: usize = to_index(
+                    x as usize,
+                    y as usize,
+                    z as usize,
+                    dose_params.patient_box.x_size as usize,
+                    dose_params.patient_box.y_size as usize,
+                );
                 let mut mask_hit: bool = false;
                 for mask in masks {
                     // Fix issue with multiple organs and the calculations
@@ -362,89 +393,64 @@ mod tests {
 
     #[test]
     fn test_cost_function() {
-    const PATIENT: PatientBox = PatientBox {
-        x_size: 100,
-        y_size: 50,
-        z_size: 30,
-    };
+        const PATIENT: PatientBox = PatientBox {
+            x_size: 100,
+            y_size: 50,
+            z_size: 30,
+        };
 
-    let tumour = TissueBox {
-        x: 40,
-        y: 35,
-        z: 12,
-        x_width: 5,
-        y_width: 5,
-        z_width: 5,
-        tissue_type: Some(TissueType::Tumour),
-    };
+        let tumour = TissueBox {
+            x: 40,
+            y: 35,
+            z: 12,
+            x_width: 5,
+            y_width: 5,
+            z_width: 5,
+            tissue_type: Some(TissueType::Tumour),
+        };
 
-    let serial_organ = TissueBox {
-        x: 42,
-        y: 38,
-        z: 18,
-        x_width: 3,
-        y_width: 3,
-        z_width: 3,
-        tissue_type: Some(TissueType::SerialOrgan),
-    };
+        let serial_organ = TissueBox {
+            x: 42,
+            y: 38,
+            z: 18,
+            x_width: 3,
+            y_width: 3,
+            z_width: 3,
+            tissue_type: Some(TissueType::SerialOrgan),
+        };
 
-    let parallel_organ = TissueBox {
-        x: 50,
-        y: 20,
-        z: 12,
-        x_width: 30,
-        y_width: 15,
-        z_width: 10,
-        tissue_type: Some(TissueType::ParallelOrgan),
-    };
+        let parallel_organ = TissueBox {
+            x: 50,
+            y: 20,
+            z: 12,
+            x_width: 30,
+            y_width: 15,
+            z_width: 10,
+            tissue_type: Some(TissueType::ParallelOrgan),
+        };
 
-    let mut mask_holder: Vec<Mask> = vec![];
-    mask_holder.push(Mask::from_tissue_box(&tumour, &PATIENT));
-    mask_holder.push(Mask::from_tissue_box(&serial_organ, &PATIENT));
-    mask_holder.push(Mask::from_tissue_box(&parallel_organ, &PATIENT));
-    let mut beams: Vec<Vector> = vec![];
-    for face in PatientBoxSide::iter() {
+        let mut mask_holder: Vec<Mask> = vec![];
+        mask_holder.push(Mask::from_tissue_box(&tumour, &PATIENT));
+        mask_holder.push(Mask::from_tissue_box(&serial_organ, &PATIENT));
+        mask_holder.push(Mask::from_tissue_box(&parallel_organ, &PATIENT));
+        let mut beams: Vec<Vector> = vec![];
+        for face in PatientBoxSide::iter() {
             let entry_point = match face {
-                PatientBoxSide::LeftFace => Vector::new(
-                    0.0,
-                    25.0,
-                    15.0,
-                ),
-                PatientBoxSide::RightFace => Vector::new(
-                    PATIENT.x_size as f32,
-                    20.0,
-                    12.3,
-                ),
-                PatientBoxSide::FrontFace => Vector::new(
-                    64.6,
-                    0.0,
-                    1.2,
-                ),
-                PatientBoxSide::BackFace => Vector::new(
-                    24.3,
-                    PATIENT.y_size as f32,
-                    22.0,
-                ),
-                PatientBoxSide::BottomFace => Vector::new(
-                    98.9,
-                    34.2,
-                    0.0,
-                ),
-                PatientBoxSide::TopFace => Vector::new(
-                    46.0,
-                    44.2,
-                    PATIENT.z_size as f32,
-                ),
+                PatientBoxSide::LeftFace => Vector::new(0.0, 25.0, 15.0),
+                PatientBoxSide::RightFace => Vector::new(PATIENT.x_size as f32, 20.0, 12.3),
+                PatientBoxSide::FrontFace => Vector::new(64.6, 0.0, 1.2),
+                PatientBoxSide::BackFace => Vector::new(24.3, PATIENT.y_size as f32, 22.0),
+                PatientBoxSide::BottomFace => Vector::new(98.9, 34.2, 0.0),
+                PatientBoxSide::TopFace => Vector::new(46.0, 44.2, PATIENT.z_size as f32),
             };
             beams.push(entry_point);
-    }
+        }
 
-
-    const N_SIZE: usize = PATIENT.grid_size() as usize;
-    println!(
-        "Rough Memory Size of Dose Matrix: {} MB",
-        (N_SIZE * std::mem::size_of::<[f32; 1]>()) / 1024 / 1024
-    );
+        const N_SIZE: usize = PATIENT.grid_size() as usize;
+        println!(
+            "Rough Memory Size of Dose Matrix: {} MB",
+            (N_SIZE * std::mem::size_of::<[f32; 1]>()) / 1024 / 1024
+        );
 
         let now = Instant::now();
         let mut dose_params: ComputeDoseParams<{ N_SIZE }> = ComputeDoseParams {
@@ -471,7 +477,7 @@ mod tests {
         };
 
         compute_dose_iter(&mut dose_params_iter);
-        let fitness = compute_costIter(&mut dose_params_iter, &mask_holder);
+        let fitness = compute_cost_iter(&mut dose_params_iter, &mask_holder);
         println!("Fitness Preset: {}", fitness);
         assert_eq!(fitness, 118.73086);
         println!(
@@ -490,10 +496,8 @@ mod tests {
         let index2 = to_index(0, 1, 0, x_max as usize, y_max as usize);
         let index3 = to_index(3, 4, 2, x_max as usize, y_max as usize);
 
-
-        assert_eq!((0,0,0), to_coords(index1 as i64, x_max, y_max));
-        assert_eq!((0,1,0), to_coords(index2 as i64, x_max, y_max));
-        assert_eq!((3,4,2), to_coords(index3 as i64, x_max, y_max));
+        assert_eq!((0, 0, 0), to_coords(index1 as i64, x_max, y_max));
+        assert_eq!((0, 1, 0), to_coords(index2 as i64, x_max, y_max));
+        assert_eq!((3, 4, 2), to_coords(index3 as i64, x_max, y_max));
     }
 }
-
