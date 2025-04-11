@@ -8,9 +8,9 @@ use std::time::Instant;
 fn main() {
     println!("Running Tumour Nuker Optimizer");
     const PATIENT: PatientBox = PatientBox {
-        x_size: 200,
-        y_size: 400,
-        z_size: 100,
+        x_size: 100,
+        y_size: 50,
+        z_size: 30,
     };
 
     let tumour = TissueBox {

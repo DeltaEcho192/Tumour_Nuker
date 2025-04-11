@@ -1,6 +1,6 @@
 use crate::beam_utils::PatientBox;
 use crate::beam_utils::TissueBox;
-use crate::beam_utils::{ComputeDoseParams, compute_cost, compute_dose, generate_beam_entries};
+use crate::beam_utils::{ComputeDoseParamsIter, compute_costIter, compute_dose_iter, generate_beam_entries};
 use crate::mask::Mask;
 use crate::vector::Vector;
 use std::sync::{RwLock, Arc};
@@ -20,14 +20,14 @@ impl Indv {
         tumour: &TissueBox,
         mask_holder: &Vec<Mask>,
     ) {
-        let mut dose_params: ComputeDoseParams<{ N_SIZE }> = ComputeDoseParams {
+        let mut dose_params: ComputeDoseParamsIter<{ N_SIZE }> = ComputeDoseParamsIter {
             patient_box: patient.clone(),
             beams: self.beams.clone(),
             tumour: tumour.clone(),
-            dose_matrix: Arc::new(RwLock::new(vec![0f32; N_SIZE].try_into().unwrap())),
+            dose_matrix: vec![0f32; N_SIZE].try_into().unwrap(),
         };
-        compute_dose(&mut dose_params);
-        self.fitness = compute_cost(&mut dose_params, &mask_holder);
+        compute_dose_iter(&mut dose_params);
+        self.fitness = compute_costIter(&mut dose_params, &mask_holder);
     }
     pub fn mutation(&mut self, patient: &PatientBox, mutation_prop: f32, mutation_bound: f32) {
         let mut rng = rand::rng();
