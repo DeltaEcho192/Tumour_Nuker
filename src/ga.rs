@@ -5,6 +5,7 @@ use crate::beam_utils::{
 };
 use crate::mask::Mask;
 use crate::vector::Vector;
+use rayon::prelude::*;
 use log::debug;
 use rand::Rng;
 
@@ -151,9 +152,9 @@ pub fn ga<const N_SIZE: usize>(
     let mut population = create_initial_population(population_size, &patient);
     let mut best_in_gen: Vec<Indv> = vec![];
     for generation in 0..generations {
-        for indv in &mut population {
+        population.par_iter_mut().for_each(|indv| {
             indv.calculate_fitness::<{ N_SIZE }>(&patient, &tumour, &mask_holder);
-        }
+        }); 
         let reproduce_pop = selection(&population, tournament_size);
         let mut new_pop: Vec<Indv> = vec![];
         let max_idx: usize = reproduce_pop.len();

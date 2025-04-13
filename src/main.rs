@@ -6,9 +6,9 @@ use tumour_nuker::mask::Mask;
 fn main() {
     println!("Running Tumour Nuker Optimizer");
     const PATIENT: PatientBox = PatientBox {
-        x_size: 100,
-        y_size: 50,
-        z_size: 30,
+        x_size: 200,
+        y_size: 400,
+        z_size: 100,
     };
 
     let tumour = TissueBox {
@@ -53,7 +53,7 @@ fn main() {
     );
 
     let now = Instant::now();
-    ga::<{ N_SIZE }>(50, 100, PATIENT, tumour, mask_holder, 5);
+    ga::<{ N_SIZE }>(20, 10, PATIENT, tumour, mask_holder, 5);
     println!(
         "Time Taken Compute cost and total: {} Miliseconds",
         now.elapsed().as_millis()
